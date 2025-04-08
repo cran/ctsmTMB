@@ -1,0 +1,39 @@
+Package: ctsmTMB
+Type: Package
+Title: Continuous Time Stochastic Modelling using Template Model
+        Builder
+Version: 1.0.0
+Date: 2025-03-20
+Authors@R: c(person("Phillip", "Vetter", email="pbrve@dtu.dk", role = c("aut", "cre", "cph")),
+	     	 person("Jan", "Møller", email="jkmo@dtu.dk", role="ctb"),
+	       person("Uffe", "Thygesen", email="uhth@dtu.dk", role="ctb"),
+	       person("Peder", "Bacher", email="pbac@dtu.dk", role="ctb"),
+	       person("Henrik", "Madsen", email="hmad@dtu.dk", role="ctb"))
+Copyright: See the file COPYRIGHTS
+Description: Perform state and parameter inference, and forecasting, in stochastic state-space systems using the 'ctsmTMB' class. This class, built with the 'R6' package, provides a user-friendly interface for defining and handling state-space models. Inference is based on maximum likelihood estimation, with derivatives efficiently computed through automatic differentiation enabled by the 'TMB'/'RTMB' packages (Kristensen et al., 2016) <doi:10.18637/jss.v070.i05>. The available inference methods include Kalman filters, in addition to a Laplace approximation-based smoothing method. For further details of these methods refer to the documentation of the 'CTSMR' package <https://ctsm.info/ctsmr-reference.pdf> and Thygesen (2025) <doi:10.48550/arXiv.2503.21358>. Forecasting capabilities include moment predictions and stochastic path simulations, both implemented in 'C++' using 'Rcpp' (Eddelbuettel et al., 2018) <doi:10.1080/00031305.2017.1375990> for computational efficiency.
+License: GPL-3
+Encoding: UTF-8
+RoxygenNote: 7.3.2
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+URL: https://github.com/phillipbvetter/ctsmTMB
+BugReports: https://github.com/phillipbvetter/ctsmTMB/issues
+SystemRequirements: GNU GSL
+Depends: R (>= 4.0.0)
+Imports: TMB, RTMB (>= 1.7), R6, Deriv, stringr, Rcpp, RcppEigen,
+        RcppXPtrUtils, RcppZiggurat, Matrix, deSolve, ggplot2,
+        ggfortify, patchwork
+LinkingTo: Rcpp, RcppEigen, RcppZiggurat
+Suggests: testthat (>= 3.0.0), knitr, rmarkdown, RTMBode
+Additional_repositories: https://kaskr.r-universe.dev
+LazyData: true
+NeedsCompilation: yes
+Packaged: 2025-04-06 10:58:08 UTC; pbrve
+Author: Phillip Vetter [aut, cre, cph],
+  Jan Møller [ctb],
+  Uffe Thygesen [ctb],
+  Peder Bacher [ctb],
+  Henrik Madsen [ctb]
+Maintainer: Phillip Vetter <pbrve@dtu.dk>
+Repository: CRAN
+Date/Publication: 2025-04-08 08:40:02 UTC

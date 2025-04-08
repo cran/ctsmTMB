@@ -1,0 +1,310 @@
+---
+title: "Moment Predictions"
+author: ""
+date: ""
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Moment Predictions}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+  
+```{r, include=FALSE}
+library(ctsmTMB)
+library(ggplot2)
+```
+
+This vignette demonstrates how to use the `predict` method for calculating *k*-step (state and observation) predictions. 
+
+**Note:** These moment predictions assume that the underlying probability density of the SDE remains approximately Gaussian. This is generally less accurate the longer the prediction horizon for non-linear SDEs, in which case stochastic simulations are more appropriate why the `simulate` method should be used instead (see the relevant [vignette](https://phillipbvetter.github.io/ctsmTMB/articles/simulate.html)).
+
+# Notation
+
+---
+
+Let the set of observations from the initial time $t_0$ until the current time $t_{i}$ be noted by
+$$
+\mathcal{Y}_{i} = \left\{ y_{i}, y_{i-1},...,y_{1},y_{0}\right\}
+$$
+A *k*-step **prediction** is a *prior* estimate of the state mean and covariance *k* time-steps into the "future" (without updating to any observations along the way) i.e.:
+$$
+\hat{x}_{i+k|i} = \mathrm{E}\left[ x_{t_{i+k}} | y_{t_{i}} \right] \\
+\hat{P}_{i+k|i} = \mathrm{V}\left[ x_{t_{i+k}} | y_{t_{i}} \right]
+$$
+
+We obtain predictions by integrating the moment differential equations (for linear $f$) forward in time i.e:
+$$
+\hat{x}_{i+k|i} = \hat{x}_{i|i} + \int_{t_{i}}^{t_{i+k}} f(\hat{x}_{i}(\tau)) \, d\tau \\
+\hat{P}_{i+k|i} = \hat{P}_{i|i} + \int_{t_{i}}^{t_{i+k}} A(\hat{x}_{i}(\tau)) \hat{P}_{i}(\tau) + \hat{P}_{i}(\tau) A^{T}(\hat{x}_{i}(\tau)) + G(\hat{x}_{i}(\tau)) G^{T}(\hat{x}_{i}(\tau)) \, d\tau
+$$
+where $\hat{x}_{i}(\tau) = \mathrm{E}\left[ x_{\tau} | y_{t_{i}} \right]$ and $\hat{P}_{i}(\tau) = \mathrm{V}\left[ x_{\tau} | y_{t_{i}} \right]$, and $A = \dfrac{df}{dx}$
+
+# Arguments
+
+---
+
+The `predict` method accepts the following arguments
+
+```{r, eval=FALSE}
+model$predict(data,
+              pars = NULL,
+              use.cpp = FALSE,
+              method = "ekf",
+              ode.solver = "euler",
+              ode.timestep = diff(data$t),
+              k.ahead = Inf,
+              return.k.ahead = NULL,
+              return.covariance = TRUE,
+              initial.state = self$getInitialState(),
+              estimate.initial.state = private$estimate.initial,
+              silent = FALSE
+)
+```
+
+## Argument: `pars`
+
+---
+
+This argument is a vector of parameter values, which are used to generate the predictions. The default behaviour is to use the parameters obtained from the latest call to `estimate` (if any) or alternative to use the initial guesses defined in `setParameter`.
+
+## Argument: `use.cpp`
+
+---
+
+This argument is a boolean which determines whether a pure **R** (`use.cpp=FALSE`, default) or **C++** (`use.cpp=TRUE`) implementation is used to calculate the predictions. 
+
+The advantage of the **C++** implementation is computational speed but this comes at the cost of 5-10 seconds compilation time (the first time in a session that the **C++** implementation is used, subsequent calls are faster). The number of prediction steps to compute is given by
+```{r, eval=FALSE}
+k.ahead * (nrow(data) - k.ahead)
+```
+which is maximized at `k.ahead = nrow(data)/2`. The **C++** implementation is therefore typically advantageous for some (relatively large) range around this maximum, at least when the data has sufficiently many rows.
+
+
+## Argument: `method`
+
+---
+
+See the description in the [estimate vignette](https://phillipbvetter.github.io/ctsmTMB/articles/estimate.html).
+
+**Note:** The `predict` method is currently only available using the Extended Kalman filter (`method="ekf`).
+
+## Argument: `ode.solver`
+
+---
+
+See the description in the [estimate vignette](https://phillipbvetter.github.io/ctsmTMB/articles/estimate.html).
+
+**Note:** When the argument `use.cpp=TRUE` then the only solvers available are *euler* and *rk4*.
+
+## Argument: `ode.timestep`
+
+---
+
+See the description in the [estimate vignette](https://phillipbvetter.github.io/ctsmTMB/articles/estimate.html).
+
+## Argument: `k.ahead`
+
+---
+
+This integer argument determines the number of prediction steps desired.
+
+
+## Argument: `return.k.ahead`
+
+---
+
+This vector of integers determines which k-step predictions are returned. The default behaviour is to return all prediction steps (as determined by `k.ahead`).
+
+## Argument: `return.covariance`
+
+---
+
+This boolean argument determines whether the covariance (`return.covariance=TRUE`, default) or the prediction correlations are returned. The returned diagonal elements are always the variances, not the trivial 1's of the correlation matrix.
+
+
+## Argument: `initial.state`
+
+---
+
+See the description in the [estimate vignette](https://phillipbvetter.github.io/ctsmTMB/articles/estimate.html).
+
+## Argument: `estimate.initial.state`
+
+---
+
+See the description in the [estimate vignette](https://phillipbvetter.github.io/ctsmTMB/articles/estimate.html).
+
+## Argument: `silent`
+
+---
+
+See the description in the [estimate vignette](https://phillipbvetter.github.io/ctsmTMB/articles/estimate.html).
+
+# Example
+
+We consider a modified Ornstein Uhlenbeck process:
+
+$$ 
+\mathrm{d}x_{t} = \theta (a_t - x_{t}) \, \mathrm{d}t \, + \sigma_{x} \, \mathrm{d}b_{t} \\
+y_{t_{k}} = x_{t_{k}} + \varepsilon_{t_{k}}
+$$
+where the mean is some complex time-varying input $a_t = tu_{t}^{2}-\cos(tu_{t})$, and $u_{t}$ is a given time-varying input signal.
+
+We create the model and simulate the data as follows:
+```{r}
+model = ctsmTMB$new()
+model$addSystem(dx ~ theta * (t*u^2-cos(t*u) - x) * dt + sigma_x*dw)
+model$addObs(y ~ x)
+model$setVariance(y ~ sigma_y^2)
+model$addInput(u)
+model$setParameter(
+  theta   = c(initial = 2, lower = 0,    upper = 100),
+  sigma_x = c(initial = 0.2, lower = 1e-5, upper = 5),
+  sigma_y = c(initial = 5e-2)
+)
+model$setInitialState(list(1, 1e-1*diag(1)))
+
+# Set simulation settings
+set.seed(20)
+true.pars <- c(theta=20, sigma_x=1, sigma_y=5e-2)
+dt.sim <- 1e-3
+t.sim <- seq(0, 1, by=dt.sim)
+u.sim <- cumsum(rnorm(length(t.sim),sd=0.1))
+df.sim <- data.frame(t=t.sim, y=NA, u=u.sim)
+
+# Perform simulation
+sim <- model$simulate(data=df.sim, 
+                      pars=true.pars, 
+                      n.sims=1,
+                      silent=T)
+x <- sim$states$x$i0$x1
+
+# Extract observations from simulation and add noise
+iobs <- seq(1,length(t.sim), by=10)
+t.obs <- t.sim[iobs]
+u.obs <- u.sim[iobs]
+y = x[iobs] + true.pars["sigma_y"] * rnorm(length(iobs))
+
+# Create data-frame
+.data <- data.frame(
+  t = t.obs,
+  u = u.obs,
+  y = y
+)
+```
+with the true parameters
+$$
+\theta = 20 \qquad \sigma_{x} = 1.00 \qquad \sigma_{y}=0.05
+$$
+
+The data is plotted below:
+```{r, echo=FALSE, fig.height=5,fig.width=9,out.width="100%", fig.align='center'}
+ggplot() + 
+  geom_point(aes(x=t.obs, y=y, color="y(t)")) +
+  geom_line(aes(x=t.obs, y=u.obs, color="u(t)")) +
+  ctsmTMB:::getggplot2theme() + 
+  theme(legend.text = ggplot2::element_text(size=15)) +
+  labs(color="",x="Time",y="")
+```
+
+A good starting point for using predictions, is to check for appropriate parameter values, which may be provided to `setParameter` for good initial guesses for the optimization. Note however that `setParameter` must be called in order to `predict` to be callable (the parameter names of the model needs to be identified), but the parameter values can be changed when calling `predict`. Let's calculate predictions for a series of parameter values (changing only `theta`):
+
+**Note:** The default behaviour of `predict` is to use a "full" prediction horizon e.g. with `k.ahead` as big as possible (`k.ahead = nrow(.data)-1`), and using the parameters from `setParameter` in this case `pars=c(2,1,1)`:
+
+```{r, message=FALSE}
+pred = model$predict(.data, k.ahead=nrow(.data)-1, pars=c(1, 1, 0.05))
+pred1 = model$predict(.data, k.ahead=nrow(.data)-1, pars=c(10, 1, 0.05))
+pred2 = model$predict(.data, k.ahead=nrow(.data)-1, pars=c(50, 1, 0.05))
+pred3 = model$predict(.data, k.ahead=nrow(.data)-1, pars=c(100, 1, 0.05))
+```
+
+The output of `predict` is a list of two `data.frames`, one for states and one for observations. The five first columns of the two `data.frames` are identical - they contain the columns `i` and `j` (indices), associated time-points `t.i` and `t.j`, and `k.ahead`. The remaining columns for states are the mean predictions, and associated covariances.
+
+```{r}
+head(pred$states) 
+```
+
+The *observations* `data.frame` currently only contain mean estimates, which are obtained by passing the mean state estimates through the observation function, which is this case is $y = h(x) = x$. The actual observed data is also provided with the suffix *.data*.
+
+```{r}
+head(pred$observations)
+```
+
+When we plot these predictions against data we can perhaps identify that $\theta \in \left[10,50\right]$ (with $\theta=20$ being the truth here).
+
+```{r, echo=FALSE, fig.height=5,fig.width=9,out.width="100%", fig.align='center'}
+t <- pred$states$t.j
+latex.str <- lapply(
+  c(sprintf("theta[%s]", c(1,10,50,100)),"y[t[k]]"),
+  str2expression
+)
+ggplot() +
+  geom_line(aes(x=t, y=pred$states$x, color="label1")) +
+  geom_line(aes(x=t, y=pred1$states$x, color="label2")) +
+  geom_line(aes(x=t, y=pred2$states$x, color="label3")) +
+  geom_line(aes(x=t, y=pred3$states$x, color="label4")) +
+  # geom_line(aes(x=t, y=pred4$states$x, color="label5")) +
+  # geom_line(aes(x=t, y=pred5$states$x, color="label6")) +
+  geom_point(aes(x=t.obs, y=y, color="y(t)")) +
+  scale_color_discrete(labels=latex.str) +
+  ctsmTMB:::getggplot2theme() + 
+  theme(legend.text = ggplot2::element_text(size=15)) +
+  labs(color="",x="Time",y="")
+```
+
+# Forecasting Evaluation
+
+We can evaluate the forecast performance of our model by comparing predictions against the observed data. We start by estimating the most likely parameters of the model:
+
+```{r}
+fit = model$estimate(.data)
+print(fit)
+```
+
+
+and then predict over an appropriate forecast horizon. In this example we let that horizon be 25-steps:
+```{r}
+pred.horizon <- 25
+pred = model$predict(.data, k.ahead=pred.horizon)
+```
+
+Let's plot the 10-step predictions against the observations.
+```{r}
+pred.H = pred$states[pred$states$k.ahead==pred.horizon,]
+```
+
+
+```{r, echo=FALSE, fig.height=5,fig.width=9,out.width="100%", fig.align='center'}
+ggplot() +
+  geom_line(aes(x=pred.H$t.j, y=pred.H$x,color="25-Step Predictions")) +
+  geom_ribbon(aes(x=pred.H$t.j,ymin=pred.H$x-2*sqrt(pred.H$var.x),ymax=pred.H$x+2*sqrt(pred.H$var.x)),fill="grey",alpha=0.5) +
+  geom_point(aes(x=t.obs,y,color="Observations")) +
+  labs(color="",x="Time",y="") +
+  ctsmTMB:::getggplot2theme()
+```
+
+Lastly lets calculate the mean prediction accuracy using an RMSE-score:
+```{r}
+rmse = c()
+k.ahead = 1:pred.horizon
+for(i in k.ahead){
+  xy = data.frame(
+    x = pred$states[pred$states$k.ahead==i,"x"],
+    y = pred$observations[pred$observations$k.ahead==i,"y.data"]
+  )
+  rmse[i] = sqrt(mean((xy[["x"]] - xy[["y"]])^2))
+}
+```
+
+
+```{r, echo=FALSE, fig.height=5,fig.width=9,out.width="100%", fig.align='center'}
+ggplot() +
+  geom_line(aes(k.ahead, rmse), color="steelblue") + 
+  geom_point(aes(k.ahead, rmse), color="red") +
+  labs(
+    title = "Root-Mean Square Errors for Different Prediction Horizons",
+    x = "Prediction Steps",
+    y = "Root-Mean-Square Errors"
+  ) +
+  ctsmTMB:::getggplot2theme()
+```

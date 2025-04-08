@@ -1,0 +1,13 @@
+bibentry(bibtype = "Manual",
+	title        = "ctsmTMB: Continuous Time Stochastic Modelling using Template Model Builder",
+	author       = c(
+		person(given = c("Phillip", "Brinck"), 	family = "Vetter", 	email = "pbrve@dtu.dk"),
+		person(given = c("Jan","K."),	family = "Møller"),
+		person(given = "Uffe", 		family = "Thygesen"),
+		person(given = "Peder",		family = "Bacher"),
+		person(given = "Henrik",	family = "Madsen")
+),	
+	year = "2025",
+	note = "R Package Version 1.0",
+	url = "https://github.com/phillipbvetter/ctsmTMB"
+)

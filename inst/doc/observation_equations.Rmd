@@ -1,0 +1,77 @@
+---
+title: "AddObs - Details"
+author: ""
+date: ""
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{AddObs - Details}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include=FALSE}
+library(ctsmTMB)
+```
+
+In this document we show how to apply functions to the left-hand side of an observation equation.
+
+```{r}
+# Create model object
+obj = ctsmTMB$new()
+
+# Add system equations
+obj$addSystem(
+  dx ~ theta * (mu-x) * dt + sigma_x*dw
+)
+```
+
+## Adding observation equations
+
+---
+
+Let's assume that our observations $y_{t}$ are log-normally distributed conditioned on $x_{t}$ i.e.
+$$
+\log y_{t_{i}} \sim N(x_{t_{i}},\sigma_{y}^{2})
+$$
+It is sufficient for the user to provide the data column `y` in the provided `data.frame` to e.g. `estimate` or `predict` by adding the following observation equation
+
+```{r}
+obj$addObs(
+  log(y) ~ x, obsnames = "log_y"
+)
+```
+
+Note that these kind of observation equations, where the left-hand side is a function of one (or more) observed variables must be explicitly named using the `obsnames` argument.
+
+## Adding observation variances
+
+---
+
+The names given with `obsnames` are important because they are needed to specify the observation variance. As an example the code below does not work, because the observation was named `log_y`
+
+```{r, error=TRUE}
+obj$setVariance(
+  y ~ sigma_y^2
+)
+```
+
+So the correct way to add the observation variance is this:
+```{r}
+obj$setVariance(
+  log_y ~ sigma_y^2
+)
+```
+
+## Multiple observation equations
+
+---
+
+You must supply multiple `obsnames` if you are supplying multiple observation equations, although the name will only be used if the left-hand side is not just a single variable i.e.
+```{r, eval=FALSE}
+obj$addObs(
+  log(y) ~ x,
+  y ~ x,
+  y^2+z^3 ~ x,
+  obsnames = c("log_y", NA, "y2_plus_z3")
+)
+```
