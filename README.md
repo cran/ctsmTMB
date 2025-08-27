@@ -1,14 +1,15 @@
 
 <!-- README.md is generated from README.Rmd. -->
+
 <!-- Logo -->
 
 # ctsmTMB <img src='man/figures/logo.png' align="right" height="150" />
 
 <!-- Badges -->
-<!-- [![CRAN status](https://www.r-pkg.org/badges/version/geomtextpath)](https://CRAN.R-project.org/package=geomtextpath) -->
 
+[![CRAN
+status](https://www.r-pkg.org/badges/version/ctsmTMB)](https://CRAN.R-project.org/package=ctsmTMB)
 [![R-CMD-check](https://github.com/phillipbvetter/ctsmTMB/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/phillipbvetter/ctsmTMB/actions/workflows/R-CMD-check.yaml)
-<!-- [![metacran downloads](https://cranlogs.r-pkg.org/badges/geomtextpath)](https://cran.r-project.org/package=geomtextpath) -->
 <!-- Package Description -->
 
 # Overview
@@ -22,13 +23,6 @@ of the package is to facilitate a user-friendly tool for (state and
 parameter) inference, and forecasting, in (multi-dimensional)
 continuous-discrete stochastic state space systems, i.e. systems on the
 form
-
-<!-- $$ -->
-<!-- \begin{align} -->
-<!-- dx_{t} & = f(t, x_t, u_t, \theta) \, dt + g(t, x_t, u_t, \theta) \, dB_{t} \\ -->
-<!-- y_{t_k} & = h(t, x_t, u_t, \theta) -->
-<!-- \end{align} -->
-<!-- $$ -->
 
 $$
 dx_{t} = f(t, x_t, u_t, \theta) \, dt + g(t, x_t, u_t, \theta) \, dB_{t}
@@ -72,56 +66,77 @@ for additional speed in **C++** using `Rcpp`.
 
 The following state reconstruction algorithms are currently available:
 
-1.  The (Continuous-Discrete) Linear Kalman Filter, `lkf`.
+1.  The Linear Kalman Filter, `lkf`.
 
-2.  The (Continuous-Discrete) Extended Kalman Filter, `ekf`.
+2.  The Extended Kalman Filter, `ekf`.
 
-3.  The (Continuous-Discrete) Laplace “Filter” `laplace`.
+3.  The Unscented Kalman Filter, `ukf`.
+
+4.  The Laplace Smoothers `laplace` and `laplace.thygesen`.
 
 ## Kalman Filters
 
 The package is currently mostly tailored towards the Kalman Filter. The
 advantages of the methods are:
 
-1.  The hessian of the likelihood function (w.r.t parameters) is
-    available.
+1.  The hessian of the likelihood function (w.r.t the fixed parameters)
+    is available.
 
 2.  The model residuals are easier to compute for e.g. model validation.
 
 3.  Multi-step predictions / simulations with state updates are easier
     to compute.
 
-In these cases **TMB** simply provides the automatic differentiation.
+The Unscented Kalman Filter implementation is based on *Algorithm 4.7*
+in [S. Särkkä, 2007](https://ieeexplore.ieee.org/document/4303242).
 
-<!-- The Unscented Kalman Filter implementation is based on *Algorithm 4.7* in [S. Särkkä, 2007](https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=4303242). -->
-
-## Laplace “Filter”
+## Laplace Smoother
 
 The state-reconstructions based on the `laplace` (approximation) method
-are *smoothed* estimates, meaning that all states are optimized jointly,
-given all observations in the data. The Laplace Approximation is
-natively built-into and completely handled by **TMB**. The package
-implements the stability-improved method due to [Thygesen,
-2025](https://arxiv.org/abs/2503.21358).
+are *smoothed* estimates, meaning that states are optimized jointly
+conditioned on all observations. The Laplace approximation is natively
+built-into and completely handled by **TMB**. The additional method
+`laplace.thygesen` is an implementation of the the stability-improved
+laplace method for systems with state-dependent diffusion and is due to
+[Thygesen, 2025](https://arxiv.org/abs/2503.21358).
 
-A particular advantage of Laplace filter is:
+A particular advantage of the Laplace smoother is:
 
 1.  The possibility for unimodal non-Gaussian observation densities to
     accommodate the need for e.g. heavier distribution tails. *Not yet
     implemented*.
 
-The method is typically not useful for model-training with the goal of
-forecasting because the likelihood contributions are based on smoothed
-estimates, rather than the one-step predictions of Kalman filters.
-
 <!-- Installation -->
 
 # Installation
 
-You can install the package by copying the command below into `R`.
+The package can be installed from CRAN:
+
+``` r
+install.packages("ctsmTMB")
+```
+
+The development version is available on GitHub
 
 ``` r
 remotes::install_github(repo="phillipbvetter/ctsmTMB", dependencies=TRUE)
+```
+
+You may experience an issue with a PAT token in which case you can try
+r-universe instead
+
+``` r
+install.packages('ctsmTMB', repos = c('https://phillipbvetter.r-universe.dev'), type="source")
+```
+
+If you encounter problems with a locked folder `00LOCK-ctsmTMB` due to a
+previously failed installation remove it with the command below before
+installating
+
+``` r
+# Edit the path to match yours!!
+enter.your.own.path <- "/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/00LOCK-ctsmTMB"
+unlink(enter.your.own.path, recursive = TRUE)
 ```
 
 It is important to note that users must have working C++ compilers to
@@ -147,14 +162,6 @@ in the Terminal
 ``` bash
 xcode-select --install
 ```
-
-<!---
-Linux also need to make sure that GSL is installed for `RcppZiggurat` which is necessary for the `simulate` method. You can try the following command, or google yourself.
-&#10;
-``` bash
-sudo apt-get install libgsl-dev
-```
---->
 
 ## Test the Installation
 
@@ -339,3 +346,8 @@ patchwork::wrap_plots(p1,p2[[1]], ncol=2)
   differential equations using the Laplace approximation: Demonstration
   and examples”*. In:
   [arXiv:2503.21358v2](https://arxiv.org/abs/2503.21358).
+
+- S. Särkkä, *“On Unscented Kalman Filtering for State Estimation of
+  Continuous-Time Nonlinear Systems”*. In: [IEEE Transactions on
+  Automatic Control, 52(9),
+  1631-1641](https://ieeexplore.ieee.org/document/4303242).

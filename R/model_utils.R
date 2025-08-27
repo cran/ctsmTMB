@@ -1,21 +1,3 @@
-#' Shortcut class constructor
-#' @description
-#' This is just a short-cut class constructor so that users can do
-#' 
-#' `model <- ctsm()` 
-#' 
-#' instead of 
-#' 
-#' `model <- ctsmTMB$new()`.
-#' @examples
-#' library(ctsmTMB)
-#' model <- ctsm()
-#' @export
-ctsm <- function(){
-  return(ctsmTMB$new())
-}
-
-
 #######################################################
 # CHANGE FROM R POWER NOTATION TO C++
 #######################################################
@@ -78,7 +60,8 @@ getggplot2theme = function() {
       legend.box = "horizontal",
       legend.direction = "horizontal",
       legend.position = "top",
-      plot.title = ggplot2::element_text(hjust=0.5)
+      plot.title = ggplot2::element_text(hjust=0.5),
+      plot.subtitle = ggplot2::element_text(hjust=0.5)
     )
   return(mytheme)
 }

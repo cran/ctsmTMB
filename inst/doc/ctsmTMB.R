@@ -47,7 +47,7 @@ library(ggplot2)
 set.seed(11)
 true.pars <- c(theta=10, mu=1, sigma_x=1, sigma_y=0.05)
 dt.sim <- 1e-3
-t.end <- 1
+t.end <- 5
 t.sim <- seq(0, t.end, by=dt.sim)
 df.sim <- data.frame(t=t.sim, u=1, y=NA)
 
@@ -80,6 +80,10 @@ ggplot() +
 ## -----------------------------------------------------------------------------
 fit <- model$estimate(data)
 
+## ----eval=FALSE,echo=FALSE----------------------------------------------------
+# # fit2 <- model$estimate(data, method="lkf")
+# # fit3 <- model$estimate(data, method="laplace")
+
 ## -----------------------------------------------------------------------------
 names(fit)
 
@@ -97,6 +101,10 @@ fit$nll.hessian
 
 ## -----------------------------------------------------------------------------
 print(fit)
+
+## ----eval=FALSE, echo=FALSE---------------------------------------------------
+# # print(fit2)
+# # print(fit3)
 
 ## -----------------------------------------------------------------------------
 fit$par.fixed
@@ -148,10 +156,25 @@ names(fit$residuals)
 plot(fit)
 
 ## ----fig.height=5,fig.width=9, out.width="100%", fig.align='center'-----------
-a <- fit$par.fixed["theta"] - 5
-b <- fit$par.fixed["theta"] + 5
-prof <- profile(fit, list("theta"=seq(a,b,length.out=25)), silent=TRUE)
+a <- fit$par.fixed["theta"] - 3*fit$sd.fixed["theta"]
+b <- fit$par.fixed["theta"] + 3*fit$sd.fixed["theta"]
+prof <- profile(fit, list("theta"=seq(a,b,length.out=50)), silent=TRUE)
 plot(prof)
+
+## ----fig.height=5,fig.width=9, out.width="100%", fig.align='center'-----------
+# a <- fit$par.fixed["mu"] - 8*fit$sd.fixed["mu"]
+# b <- fit$par.fixed["mu"] + 8*fit$sd.fixed["mu"]
+# prof <- profile(fit, list("mu"=seq(a,b,length.out=50)), silent=TRUE)
+# plot(prof)
+
+## ----fig.height=5,fig.width=9, out.width="100%", fig.align='center'-----------
+# a <- fit$par.fixed["theta"] - 5*fit$sd.fixed["theta"]
+# b <- fit$par.fixed["theta"] + 5*fit$sd.fixed["theta"]
+# c <- fit$par.fixed["mu"] - 10*fit$sd.fixed["mu"]
+# d <- fit$par.fixed["mu"] + 10*fit$sd.fixed["mu"]
+# prof <- profile(fit, list("theta"=seq(a,b,length.out=50),
+#                           "mu"=seq(c,d,length.out=50)), silent=TRUE)
+# plot(prof)
 
 ## -----------------------------------------------------------------------------
 model$setAlgebraics(theta ~ exp(logtheta))

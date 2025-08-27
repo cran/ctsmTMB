@@ -8,31 +8,42 @@
 
 check_and_set_data = function(data, self, private) {
   
-  # convert to data.frame
-  data = as.data.frame(data)
+  # Check data for re-set
+  if(any(private$procedure == c("estimation","construction"))){
+    
+    check_for_data_rebuild(data, self, private)
+    
+    # if the data is identical to previous calls do nothing
+    if(!private$rebuild.data) return(invisible(self))
+    
+    # if the data changed then we continue in this loop - so disable flag
+    private$rebuild.data <- FALSE
+    # if when
+    private$rebuild.ad <- TRUE
+    
+    # store this newly provided estimation data
+    private$old.data$entry.data <- data
+  }
   
-  # calculate "complex" right-hand side observation equations
-  data = calculate_complex_observation_lefthandsides(data, self, private)
+  if(!private$silent) message("Checking and setting data...")
   
   # Check that inputs, and observations are there
   basic_data_check(data, self, private)
+  
+  # calculate "complex" right-hand side observation equations
+  data <- calculate_complex_observation_lefthandsides(data, self, private)
   
   # save data
   # only store the obs.names, not the parsed data 
   # example: if we have obs eq log(y) ~ x with name log_y, then we store log_y, but not y itself.
   private$data = data[c(private$obs.names, private$input.names)]
   
-  # set timestep
+  # set timesteps
   set_ode_timestep(data, self, private)
   set_simulation_timestep(data, self, private)
   
   # various calculations for tmb's laplace method
-  if(private$method=="laplace"){
-    set_data_for_laplace_method(data, self, private)
-  }
-  if(private$method=="laplace2"){
-    set_data_for_laplace_method(data, self, private)
-  }
+  set_data_for_laplace_method(data, self, private)
   
   # Return
   return(invisible(self))
@@ -150,26 +161,22 @@ set_ode_timestep = function(data, self, private){
   # We take 3 steps, so for last entry, we must reduce the step-size to data.dt[3] / ode.N[3] = 2.5 / 3  = 0.88883333 
   # down from the set ode.timestep = 1
   
-  
-  # check for no provided time.step
-  # if(is.null(private$ode.timestep)){
-  # private$ode.timestep = diff(data$t)
-  # }
+  ode.timestep <- private$ode.timestep
   
   # check that ode.timestep has length 1 or at least nrow(data)-1.
-  if (length(private$ode.timestep) == 1) {
+  if (length(ode.timestep) == 1) {
     
     # Recycle to correct length
-    private$ode.timestep = rep(private$ode.timestep, nrow(data)-1)
+    ode.timestep = rep(ode.timestep, nrow(data)-1)
     
-  }  else if (length(private$ode.timestep) == nrow(data) -1) {
+  }  else if (length(ode.timestep) == nrow(data) -1) {
     
     # do nothing
     
-  } else if (length(private$ode.timestep) > nrow(data) - 1 ) {
+  } else if (length(ode.timestep) > nrow(data) - 1 ) {
     
     # trim if it is larger than nrow(data)-1
-    private$ode.timestep = head(private$ode.timestep, nrow(data)-1)
+    ode.timestep = head(ode.timestep, nrow(data)-1)
     warning("The provided ode.timestep was longer than nrow(data) - 1, only using first nrow(data)-1 entries.")
     
   } else {
@@ -186,11 +193,11 @@ set_ode_timestep = function(data, self, private){
   # For the data time-gaps larger than ode.timestep, we set the time-step to the requested ode.timestep
   # For all others just take a timestep equal to the time-gap in the data (which will be smaller than ode.timestep)
   ode_timestep_size = data.dt
-  bool = data.dt > private$ode.timestep
-  ode_timestep_size[bool] = private$ode.timestep[bool]
+  bool = data.dt > ode.timestep
+  ode_timestep_size[bool] = ode.timestep[bool]
   
   # where data.dt > ode.timestep, calculate the required number of steps using ode.timestep
-  ode.timesteps[bool] = data.dt[bool] / private$ode.timestep[bool]
+  ode.timesteps[bool] = data.dt[bool] / ode.timestep[bool]
   
   # Find those indices where the number of steps must increase
   epsilon.step  = 1e-3
@@ -273,20 +280,22 @@ set_simulation_timestep = function(data, self, private){
   # We take 3 steps, so for last entry, we must reduce the step-size to data.dt[3] / ode.N[3] = 2.5 / 3  = 0.88883333 
   # down from the set ode.timestep = 1
   
+  simulation.timestep <- private$simulation.timestep
+  
   # check that simulation.timestep has length 1 or at least nrow(data)-1.
-  if (length(private$simulation.timestep) == 1) {
+  if (length(simulation.timestep) == 1) {
     
     # Recycle to correct length
-    private$simulation.timestep = rep(private$simulation.timestep, nrow(data)-1)
+    simulation.timestep = rep(simulation.timestep, nrow(data)-1)
     
-  }  else if (length(private$simulation.timestep) == nrow(data) - 1) {
+  }  else if (length(simulation.timestep) == nrow(data) - 1) {
     
     # do nothing
     
-  } else if (length(private$simulation.timestep) > nrow(data) - 1 ) {
+  } else if (length(simulation.timestep) > nrow(data) - 1 ) {
     
     # trim if it is larger than nrow(data)-1
-    private$simulation.timestep = head(private$simulation.timestep, nrow(data)-1)
+    simulation.timestep = head(simulation.timestep, nrow(data)-1)
     # warning("The provided simulation.timestep was longer than nrow(data) - 1, only using first nrow(data)-1 entries.")
     
   } else {
@@ -303,11 +312,11 @@ set_simulation_timestep = function(data, self, private){
   # For the data time-gaps larger than ode.timestep, we set the time-step to the requested ode.timestep
   # For all others just take a timestep equal to the time-gap in the data (which will be smaller than ode.timestep)
   simulation_timestep_size = data.dt
-  bool = data.dt > private$simulation.timestep
-  simulation_timestep_size[bool] = private$simulation.timestep[bool]
+  bool = data.dt > simulation.timestep
+  simulation_timestep_size[bool] = simulation.timestep[bool]
   
   # where data.dt > ode.timestep, calculate the required number of steps using ode.timestep
-  simulation.timesteps[bool] = data.dt[bool] / private$simulation.timestep[bool]
+  simulation.timesteps[bool] = data.dt[bool] / simulation.timestep[bool]
   
   # Find those indices where the number of steps must increase
   epsilon.step  = 1e-2
@@ -335,19 +344,29 @@ set_simulation_timestep = function(data, self, private){
 #######################################################
 # SET PARAMETERS
 #######################################################
-set_parameters = function(pars, silent, self, private){
+set_parameters = function(pars, self, private){
   
-  ###### PARAMETERS #######
+  # This function sets the parameters used by estimations, filters etc.
+  # The provided 'pars' arguments are used by default, else the estimated onces
+  # if available, else the initial ones provided in the call to setParameter.
+  
+  # 
+  
+  # If no parameters are provided:
   if(is.null(pars)){
-    # if the estimation has been run, then use these parameters
+    
+    # If estimated parameters available use these, else use initial
     if(!is.null(private$fit)){
-      # if(!silent) message("Using estimated parameter values")
       pars = self$getParameters(value="estimate")
     } else {
-      # if(!silent) message("Using initial parameter values")
       pars = self$getParameters(value="initial")
     }
-  } else {
+  } 
+  
+  # If only the free parameters are provided, then add the fixed ones too,
+  # in the correct order
+  if(!is.null(pars)){
+    
     # check if parameters is with or without fixed parameters
     lp = length(private$parameter.names)
     fp = length(private$fixed.pars)
@@ -356,7 +375,8 @@ set_parameters = function(pars, silent, self, private){
     if(!any(length(pars) == c(lp, lp-fp))){
       stop("Incorrect number of parameters supplied (",length(pars),"). ", "Please supply either ",lp," or ", lp-fp, ", i.e. with or without fixed parameters.")
     }
-    # if parameters does not contain fixed parameters - add these
+    
+    # add fixed parameters if missing
     if(length(pars)==lp-fp){
       
       # Get free and fixes ids
@@ -364,7 +384,7 @@ set_parameters = function(pars, silent, self, private){
       par.type.fixed <- !par.type.free
       
       # Create new par-vector
-      full.parVec <- rep(NA,lp)
+      full.parVec <- rep(NA, lp)
       
       # Assign free and fixed pars 
       full.parVec[par.type.free] <- pars
@@ -375,6 +395,7 @@ set_parameters = function(pars, silent, self, private){
     }
   }
   
+  names(pars) <- private$parameter.names
   private$pars = pars
   
   return(invisible(NULL))
